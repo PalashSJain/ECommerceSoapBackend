@@ -4,10 +4,7 @@ import components.data.*;
 import org.dom4j.Document;
 import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
-import org.dom4j.io.OutputFormat;
-import org.dom4j.io.XMLWriter;
 
-import java.io.IOException;
 import java.sql.Time;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -28,7 +25,7 @@ public class LAMSService {
     public String initialize() {
         dbSingleton = DBSingleton.getInstance();
         dbSingleton.db.initialLoad("LAMS");
-        return "<result>Database Initialized</result>";
+        return "Database Initialized";
     }
 
     /**
@@ -40,12 +37,17 @@ public class LAMSService {
         dbSingleton = DBSingleton.getInstance();
         dbSingleton.db.initialLoad("LAMS");
         System.out.println("All appointments");
-        List<Object> objs = dbSingleton.db.getData("Appointment", "");
-        StringBuilder sb = new StringBuilder();
-        for (Object obj : objs) {
-            sb.append(obj);
+        List<Object> appointments = dbSingleton.db.getData("Appointment", "");
+        if (appointments.isEmpty()) return "Appointment doesn't exist";
+
+        Document document = DocumentHelper.createDocument();
+        Element appointmentList = document.addElement("AppointmentList");
+
+        for (Object appointment : appointments) {
+            createAppointmentXML(appointmentList, (Appointment) appointment);
         }
-        return "<result>" + sb.toString() + "</result>";
+
+        return document.asXML();
     }
 
     /**
@@ -60,53 +62,72 @@ public class LAMSService {
         List<Object> appointments = dbSingleton.db.getData("Appointment", "patientid='" + appointNumber + "'");
         if (appointments.isEmpty()) return "Appointment doesn't exist";
 
-        Patient patientObj = null;
-        Phlebotomist phlebotomistObj = null;
-        PSC pscObj = null;
-        List<AppointmentLabTest> allLabTestsList = null;
-
         Document document = DocumentHelper.createDocument();
         Element appointmentList = document.addElement("AppointmentList");
 
-        for (Object obj : appointments) {
-            Appointment appointmentObj = (Appointment) obj;
-            Element appointment = appointmentList.addElement("appointment");
-            appointment
-                    .addAttribute("date", changeDateFormat(appointmentObj.getApptdate(), "YYYY-MM-dd"))
-                    .addAttribute("id", appointmentObj.getId())
-                    .addAttribute("time", changeTimeFormat(appointmentObj.getAppttime()));
-
-            patientObj = appointmentObj.getPatientid();
-            Element patient = appointment.addElement("patient");
-            patient.addAttribute("id", patientObj.getId());
-            patient
-                    .addElement("name", patientObj.getName())
-                    .addElement("address", patientObj.getAddress())
-                    .addElement("insurance", String.valueOf(patientObj.getInsurance()))
-                    .addElement("dob", changeDateFormat(patientObj.getDateofbirth(), "YYYY-MM-dd"));
-
-            phlebotomistObj = appointmentObj.getPhlebid();
-            Element phlebotomist = appointment.addElement("phlebotomist");
-            phlebotomist.addAttribute("id", phlebotomistObj.getId());
-            phlebotomist.addElement("name", phlebotomistObj.getName());
-
-            pscObj = appointmentObj.getPscid();
-            Element psc = appointment.addElement("psc");
-            psc.addAttribute("id", pscObj.getId());
-            psc.addElement("name", pscObj.getName());
-
-            Element allLabTests = appointment.addElement("allLabTests");
-            allLabTestsList = appointmentObj.getAppointmentLabTestCollection();
-            for (AppointmentLabTest labtest : allLabTestsList) {
-                Element appointmentLabTest = allLabTests.addElement("appointmentLabTest");
-                appointmentLabTest
-                        .addAttribute("appointmentId", labtest.getAppointment().getId())
-                        .addAttribute("dxcode", labtest.getDiagnosis().getCode())
-                        .addAttribute("labTestId", labtest.getLabTest().getId());
-            }
+        for (Object appointment : appointments) {
+            createAppointmentXML(appointmentList, (Appointment) appointment);
         }
 
         return document.asXML();
+    }
+
+    private void createAppointmentXML(Element appointmentList, Appointment appointmentObj) {
+        Element appointment = appointmentList.addElement("appointment");
+        appointment
+                .addAttribute("date", changeDateFormat(appointmentObj.getApptdate(), "YYYY-MM-dd"))
+                .addAttribute("id", appointmentObj.getId())
+                .addAttribute("time", changeTimeFormat(appointmentObj.getAppttime()));
+
+        createPatientXML(appointmentObj, appointment);
+        createPhlebotomistXML(appointmentObj, appointment);
+        createPscXML(appointmentObj, appointment);
+        createAllLabTestsXML(appointmentObj, appointment);
+    }
+
+    private void createPatientXML(Appointment appointmentObj, Element appointment) {
+        Patient patientObj;
+        patientObj = appointmentObj.getPatientid();
+        Element patient = appointment.addElement("patient");
+        patient.addAttribute("id", patientObj.getId());
+        patient
+                .addElement("name", patientObj.getName())
+                .addElement("address", patientObj.getAddress())
+                .addElement("insurance", String.valueOf(patientObj.getInsurance()))
+                .addElement("dob", changeDateFormat(patientObj.getDateofbirth(), "YYYY-MM-dd"));
+    }
+
+    private void createPhlebotomistXML(Appointment appointmentObj, Element appointment) {
+        Phlebotomist phlebotomistObj;
+        phlebotomistObj = appointmentObj.getPhlebid();
+        Element phlebotomist = appointment.addElement("phlebotomist");
+        phlebotomist.addAttribute("id", phlebotomistObj.getId());
+        phlebotomist.addElement("name", phlebotomistObj.getName());
+    }
+
+    private void createPscXML(Appointment appointmentObj, Element appointment) {
+        PSC pscObj;
+        pscObj = appointmentObj.getPscid();
+        Element psc = appointment.addElement("psc");
+        psc.addAttribute("id", pscObj.getId());
+        psc.addElement("name", pscObj.getName());
+    }
+
+    private void createAllLabTestsXML(Appointment appointmentObj, Element appointment) {
+        List<AppointmentLabTest> allLabTestsList;
+        Element allLabTests = appointment.addElement("allLabTests");
+        allLabTestsList = appointmentObj.getAppointmentLabTestCollection();
+        for (AppointmentLabTest labtest : allLabTestsList) {
+            createAppointmentLabTestXML(allLabTests, labtest);
+        }
+    }
+
+    private void createAppointmentLabTestXML(Element allLabTests, AppointmentLabTest labtest) {
+        Element appointmentLabTest = allLabTests.addElement("appointmentLabTest");
+        appointmentLabTest
+                .addAttribute("appointmentId", labtest.getAppointment().getId())
+                .addAttribute("dxcode", labtest.getDiagnosis().getCode())
+                .addAttribute("labTestId", labtest.getLabTest().getId());
     }
 
     private String changeTimeFormat(Time time) {
