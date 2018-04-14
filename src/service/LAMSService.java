@@ -1,10 +1,14 @@
 package service;
 
+import business.BusinessLayer;
 import components.data.*;
 import org.dom4j.Document;
+import org.dom4j.DocumentException;
 import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
+import org.dom4j.io.SAXReader;
 
+import java.io.StringReader;
 import java.sql.Time;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -16,6 +20,7 @@ import java.util.List;
  */
 public class LAMSService {
     DBSingleton dbSingleton;
+    BusinessLayer businessLayer;
 
     /**
      * Initializes the database
@@ -23,6 +28,7 @@ public class LAMSService {
      * @return
      */
     public String initialize() {
+        businessLayer = new BusinessLayer();
         dbSingleton = DBSingleton.getInstance();
         dbSingleton.db.initialLoad("LAMS");
         return "Database Initialized";
@@ -153,29 +159,97 @@ public class LAMSService {
      * @return
      */
     public String addAppointment(String xmlStyle) {
-        Appointment newAppt = new Appointment("800", java.sql.Date.valueOf("2009-09-01"), java.sql.Time.valueOf("10:15:00"));
-        List<AppointmentLabTest> tests = new ArrayList<AppointmentLabTest>();
-        AppointmentLabTest test = new AppointmentLabTest("800", "86900", "292.9");
-        test.setDiagnosis((Diagnosis) dbSingleton.db.getData("Diagnosis", "code='292.9'").get(0));
-        test.setLabTest((LabTest) dbSingleton.db.getData("LabTest", "id='86900'").get(0));
-        tests.add(test);
-        newAppt.setAppointmentLabTestCollection(tests);
+        xmlStyle = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>" +
+                "<appointment>" +
+                "<date>2018-12-28</date>" +
+                "<time>10:00</time>" +
+                "<patientId>220</patientId>" +
+                "<physicianId>20</physicianId>" +
+                "<pscId>520</pscId>" +
+                "<phlebotomistId>110</phlebotomistId>" +
+                "<labTests>" +
+                "<test id=\"86900\" dxcode=\"292.9\" />" +
+                "<test id=\"86609\" dxcode=\"307.3\" />" +
+                "</labTests>" +
+                "</appointment>";
 
-//        patient = ((Appointment) obj).getPatientid();
-//        phleb = ((Appointment) obj).getPhlebid();
-//        psc = ((Appointment) obj).getPscid();
-//
-//        newAppt.setPatientid(patient);
-//        newAppt.setPhlebid(phleb);
-//        newAppt.setPscid(psc);
+        SAXReader reader = new SAXReader();
+        try {
+            Document outputDoc = DocumentHelper.createDocument();
+            Element appointmentList = outputDoc.addElement("AppointmentList");
 
-        boolean good = dbSingleton.db.addData(newAppt);
-        List<Object> objs = dbSingleton.db.getData("Appointment", "");
-        for (Object obj : objs) {
-            System.out.println(obj);
-            System.out.println("");
+            Document inputDoc = reader.read(new StringReader(xmlStyle));
+
+            Element appointment = inputDoc.getRootElement();
+            String patientId = appointment.selectSingleNode("patientId").getText();
+            if (!businessLayer.isPatientValid(patientId)) {
+                appointmentList.addElement("error", "ERROR:Appointment is not available");
+                return outputDoc.asXML();
+            }
+
+            String phlebotomistId = appointment.selectSingleNode("phlebotomistId").getText();
+            if (!businessLayer.isPhlebotomistValid(phlebotomistId)) {
+                appointmentList.addElement("error", "ERROR:Appointment is not available");
+                return outputDoc.asXML();
+            }
+
+            String physicianId = appointment.selectSingleNode("physicianId").getText();
+            if (!businessLayer.isPhysicianValid(physicianId)) {
+                appointmentList.addElement("error", "ERROR:Appointment is not available");
+                return outputDoc.asXML();
+            }
+
+            List nodes = appointment.selectNodes("labTests");
+            List<AppointmentLabTest> tests = new ArrayList<>();
+            for (Object node : nodes) {
+                String labTest = ((Element) node).attributeValue("id");
+                if (!businessLayer.isLabTestValid(labTest)) {
+                    appointmentList.addElement("error", "ERROR:Appointment is not available");
+                    return outputDoc.asXML();
+                }
+
+                String dxcode = ((Element) node).attributeValue("dxcode");
+                if (!businessLayer.isDiagnosisCodeValid(dxcode)) {
+                    appointmentList.addElement("error", "ERROR:Appointment is not available");
+                    return outputDoc.asXML();
+                }
+
+                AppointmentLabTest test = new AppointmentLabTest("800", labTest, dxcode);
+                test.setDiagnosis((Diagnosis) dbSingleton.db.getData("Diagnosis", "code='" + dxcode + "'").get(0));
+                test.setLabTest((LabTest) dbSingleton.db.getData("LabTest", "id='" + labTest + "'").get(0));
+                tests.add(test);
+            }
+
+            String time = appointment.selectSingleNode("time").getText();
+            if (!businessLayer.isTimeValid(time)) {
+                appointmentList.addElement("error", "ERROR:Appointment is not available");
+                return outputDoc.asXML();
+            }
+
+            String date = appointment.selectSingleNode("date").getText();
+            if (!businessLayer.isDateValid(date)) {
+                appointmentList.addElement("error", "ERROR:Appointment is not available");
+                return outputDoc.asXML();
+            }
+
+            if (businessLayer.isAppointmentAvailable(time, date)) {
+                // TODO GET UNIQUE APPOINTMENT ID for "800"
+                Appointment newAppt = new Appointment("800", java.sql.Date.valueOf(date), java.sql.Time.valueOf(time));
+                newAppt.setAppointmentLabTestCollection(tests);
+
+                if (dbSingleton.db.addData(newAppt)) {
+                    return getAppointment("800");
+                }
+            } else {
+                appointmentList.addElement("error", "ERROR:Appointment is not available");
+                return outputDoc.asXML();
+            }
+
+
+        } catch (DocumentException e) {
+            e.printStackTrace();
         }
 
-        return "<result></result>";
+        return "";
     }
 }
