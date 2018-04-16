@@ -9,6 +9,7 @@ import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 
 import java.io.StringReader;
+import java.sql.Date;
 import java.sql.Time;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -65,7 +66,7 @@ public class LAMSService {
     public String getAppointment(String appointNumber) {
         dbSingleton = DBSingleton.getInstance();
         dbSingleton.db.initialLoad("LAMS");
-        List<Object> appointments = dbSingleton.db.getData("Appointment", "patientid='" + appointNumber + "'");
+        List<Object> appointments = dbSingleton.db.getData("Appointment", "id='" + appointNumber + "'");
         if (appointments.isEmpty()) return "Appointment doesn't exist";
 
         Document document = DocumentHelper.createDocument();
@@ -96,11 +97,10 @@ public class LAMSService {
         patientObj = appointmentObj.getPatientid();
         Element patient = appointment.addElement("patient");
         patient.addAttribute("id", patientObj.getId());
-        patient
-                .addElement("name", patientObj.getName())
-                .addElement("address", patientObj.getAddress())
-                .addElement("insurance", String.valueOf(patientObj.getInsurance()))
-                .addElement("dob", changeDateFormat(patientObj.getDateofbirth(), "YYYY-MM-dd"));
+        patient.addElement("name").addText(patientObj.getName());
+        patient.addElement("address").addText(patientObj.getAddress());
+        patient.addElement("insurance").addText(String.valueOf(patientObj.getInsurance()));
+        patient.addElement("dob").addText(changeDateFormat(patientObj.getDateofbirth(), "YYYY-MM-dd"));
     }
 
     private void createPhlebotomistXML(Appointment appointmentObj, Element appointment) {
@@ -108,7 +108,7 @@ public class LAMSService {
         phlebotomistObj = appointmentObj.getPhlebid();
         Element phlebotomist = appointment.addElement("phlebotomist");
         phlebotomist.addAttribute("id", phlebotomistObj.getId());
-        phlebotomist.addElement("name", phlebotomistObj.getName());
+        phlebotomist.addElement("name").addText(phlebotomistObj.getName());
     }
 
     private void createPscXML(Appointment appointmentObj, Element appointment) {
@@ -116,7 +116,7 @@ public class LAMSService {
         pscObj = appointmentObj.getPscid();
         Element psc = appointment.addElement("psc");
         psc.addAttribute("id", pscObj.getId());
-        psc.addElement("name", pscObj.getName());
+        psc.addElement("name").addText(pscObj.getName());
     }
 
     private void createAllLabTestsXML(Appointment appointmentObj, Element appointment) {
@@ -173,28 +173,38 @@ public class LAMSService {
                 "</labTests>" +
                 "</appointment>";
 
+        Document outputDoc = DocumentHelper.createDocument();
+        Element appointmentList = outputDoc.addElement("AppointmentList");
+
         SAXReader reader = new SAXReader();
         try {
-            Document outputDoc = DocumentHelper.createDocument();
-            Element appointmentList = outputDoc.addElement("AppointmentList");
-
             Document inputDoc = reader.read(new StringReader(xmlStyle));
 
             Element appointment = inputDoc.getRootElement();
             String patientId = appointment.selectSingleNode("patientId").getText();
-            if (!businessLayer.isPatientValid(patientId)) {
+            Patient patient = businessLayer.getPatient(patientId);
+            if (patient == null) {
                 appointmentList.addElement("error", "ERROR:Appointment is not available");
                 return outputDoc.asXML();
             }
 
             String phlebotomistId = appointment.selectSingleNode("phlebotomistId").getText();
-            if (!businessLayer.isPhlebotomistValid(phlebotomistId)) {
+            Phlebotomist phlebotomist = businessLayer.getPhlebotomist(phlebotomistId);
+            if (phlebotomist == null) {
                 appointmentList.addElement("error", "ERROR:Appointment is not available");
                 return outputDoc.asXML();
             }
 
             String physicianId = appointment.selectSingleNode("physicianId").getText();
-            if (!businessLayer.isPhysicianValid(physicianId)) {
+            Physician physician = businessLayer.getPhysician(physicianId);
+            if (physician == null) {
+                appointmentList.addElement("error", "ERROR:Appointment is not available");
+                return outputDoc.asXML();
+            }
+
+            String pscId = appointment.selectSingleNode("pscId").getText();
+            PSC psc = businessLayer.getPSC(pscId);
+            if (psc == null) {
                 appointmentList.addElement("error", "ERROR:Appointment is not available");
                 return outputDoc.asXML();
             }
@@ -202,43 +212,61 @@ public class LAMSService {
             List nodes = appointment.selectNodes("labTests");
             List<AppointmentLabTest> tests = new ArrayList<>();
             for (Object node : nodes) {
-                String labTest = ((Element) node).attributeValue("id");
-                if (!businessLayer.isLabTestValid(labTest)) {
+                String labTestId = ((Element) node).attributeValue("id");
+                LabTest labTest = businessLayer.getLabTest(labTestId);
+                if (labTest == null) {
                     appointmentList.addElement("error", "ERROR:Appointment is not available");
                     return outputDoc.asXML();
                 }
 
                 String dxcode = ((Element) node).attributeValue("dxcode");
-                if (!businessLayer.isDiagnosisCodeValid(dxcode)) {
+                Diagnosis diagnosis = businessLayer.getDiagnosis(dxcode);
+                if (diagnosis == null) {
                     appointmentList.addElement("error", "ERROR:Appointment is not available");
                     return outputDoc.asXML();
                 }
 
-                AppointmentLabTest test = new AppointmentLabTest("800", labTest, dxcode);
-                test.setDiagnosis((Diagnosis) dbSingleton.db.getData("Diagnosis", "code='" + dxcode + "'").get(0));
-                test.setLabTest((LabTest) dbSingleton.db.getData("LabTest", "id='" + labTest + "'").get(0));
+                AppointmentLabTest test = new AppointmentLabTest("800", labTestId, dxcode);
+                test.setDiagnosis(diagnosis);
+                test.setLabTest(labTest);
                 tests.add(test);
             }
 
-            String time = appointment.selectSingleNode("time").getText();
-            if (!businessLayer.isTimeValid(time)) {
+            String t = appointment.selectSingleNode("time").getText();
+            Time time;
+            try {
+                time = Time.valueOf(t);
+                if (!businessLayer.isTimeValid(time)) {
+                    appointmentList.addElement("error", "ERROR:Appointment is not available");
+                    return outputDoc.asXML();
+                }
+            } catch (Exception e) {
                 appointmentList.addElement("error", "ERROR:Appointment is not available");
                 return outputDoc.asXML();
             }
 
-            String date = appointment.selectSingleNode("date").getText();
-            if (!businessLayer.isDateValid(date)) {
+            String d = appointment.selectSingleNode("date").getText();
+            Date date;
+            try {
+                date = Date.valueOf(d);
+            } catch (Exception e) {
                 appointmentList.addElement("error", "ERROR:Appointment is not available");
                 return outputDoc.asXML();
             }
 
-            if (businessLayer.isAppointmentAvailable(time, date)) {
+            if (businessLayer.isAppointmentAvailable(patient, phlebotomist, psc, time, date)) {
                 // TODO GET UNIQUE APPOINTMENT ID for "800"
-                Appointment newAppt = new Appointment("800", java.sql.Date.valueOf(date), java.sql.Time.valueOf(time));
+                Appointment newAppt = new Appointment();
+                newAppt.setAppttime(time);
+                newAppt.setApptdate(date);
                 newAppt.setAppointmentLabTestCollection(tests);
+                newAppt.setPatientid(patient);
+                newAppt.setPhlebid(phlebotomist);
+                newAppt.setPscid(psc);
+                newAppt.setId("801");
 
                 if (dbSingleton.db.addData(newAppt)) {
-                    return getAppointment("800");
+                    return getAppointment("801");
                 }
             } else {
                 appointmentList.addElement("error", "ERROR:Appointment is not available");
@@ -250,6 +278,7 @@ public class LAMSService {
             e.printStackTrace();
         }
 
-        return "";
+        appointmentList.addElement("error", "ERROR:Appointment is not available");
+        return outputDoc.asXML();
     }
 }
