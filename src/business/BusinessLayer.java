@@ -27,16 +27,8 @@ public class BusinessLayer {
     }
 
     public boolean isAppointmentAvailable(Patient patient, Phlebotomist phlebotomist, PSC psc, Time time, Date date) {
-        Calendar tCalendar = Calendar.getInstance();
-        tCalendar.setTimeInMillis(time.getTime());
-        String t = tCalendar.get(Calendar.HOUR_OF_DAY) + ":" + tCalendar.get(Calendar.MINUTE) + ":00"; // 1400:00
-
-        Calendar dCalendar = Calendar.getInstance();
-        dCalendar.setTimeInMillis(date.getTime());
-        String d = dCalendar.get(Calendar.MONTH) + "/" + dCalendar.get(Calendar.DATE) + "/" + dCalendar.get(Calendar.YEAR); // 2/1/2017
-
-        if (hasAppointment(patient, time.getTime(), d)) return false;
-        Appointment appointment = getLatestAppointment(phlebotomist, time, d);
+        if (hasAppointment(patient, time.getTime(), date)) return false;
+        Appointment appointment = getLatestAppointment(phlebotomist, time, date);
         if (appointment == null) {
             return true;
         }
@@ -51,9 +43,14 @@ public class BusinessLayer {
         }
     }
 
-    private Appointment getLatestAppointment(Phlebotomist phlebotomist, Time time, String d) {
+    private Appointment getLatestAppointment(Phlebotomist phlebotomist, Time time, Date date) {
+        Calendar dCalendar = Calendar.getInstance();
+        dCalendar.setTimeInMillis(date.getTime());
+        String d = (dCalendar.get(Calendar.MONTH)+1) + "/" + dCalendar.get(Calendar.DATE) + "/" + dCalendar.get(Calendar.YEAR); // 2/1/2017
+
         Appointment a = null;
         List<Object> appointments = dbSingleton.db.getData("Appointment", "phlebid='" + phlebotomist.getId() + "' and apptdate='" + d + "'");
+
         for (Object obj : appointments) {
             Appointment appointment = (Appointment) obj;
             if (appointment.getAppttime().getTime() <= time.getTime()) a = appointment;
@@ -61,8 +58,11 @@ public class BusinessLayer {
         return a;
     }
 
-    private boolean hasAppointment(Patient patient, long t, String d) {
-        // TODO appttime
+    private boolean hasAppointment(Patient patient, long t, Date date) {
+        Calendar dCalendar = Calendar.getInstance();
+        dCalendar.setTimeInMillis(date.getTime());
+        String d = (dCalendar.get(Calendar.MONTH)+1) + "/" + dCalendar.get(Calendar.DATE) + "/" + dCalendar.get(Calendar.YEAR); // 2/1/2017
+
         List<Object> appointments = dbSingleton.db.getData("Appointment", "patientid='" + patient.getId() + "' and apptdate='" + d + "'");
         for (Object obj : appointments) {
             Appointment appointment = (Appointment) obj;
@@ -70,7 +70,7 @@ public class BusinessLayer {
                 return true;
             }
         }
-        return appointments != null && appointments.size() == 1;
+        return appointments != null && appointments.size() > 0;
     }
 
     public Patient getPatient(String patientId) {

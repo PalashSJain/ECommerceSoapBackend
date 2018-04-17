@@ -215,8 +215,7 @@ public class LAMSService {
             InputSource is = new InputSource(new StringReader(xml));
             input = dBuilder.parse(is);
         } catch (SAXException | IOException e) {
-            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
-            return asXMLString(output);
+            return getAppointmentUnavailabilityError(output, appointmentList);
         }
         input.getDocumentElement().normalize();
         Element appointment = input.getDocumentElement();
@@ -224,29 +223,25 @@ public class LAMSService {
         String patientId = appointment.getElementsByTagName("patientId").item(0).getTextContent();
         Patient patient = businessLayer.getPatient(patientId);
         if (patient == null) {
-            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
-            return asXMLString(output);
+            return getAppointmentUnavailabilityError(output, appointmentList);
         }
 
         String phlebotomistId = appointment.getElementsByTagName("phlebotomistId").item(0).getTextContent();
         Phlebotomist phlebotomist = businessLayer.getPhlebotomist(phlebotomistId);
         if (phlebotomist == null) {
-            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
-            return asXMLString(output);
+            return getAppointmentUnavailabilityError(output, appointmentList);
         }
 
         String physicianId = appointment.getElementsByTagName("physicianId").item(0).getTextContent();
         Physician physician = businessLayer.getPhysician(physicianId);
         if (physician == null) {
-            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
-            return asXMLString(output);
+            return getAppointmentUnavailabilityError(output, appointmentList);
         }
 
         String pscId = appointment.getElementsByTagName("pscId").item(0).getTextContent();
         PSC psc = businessLayer.getPSC(pscId);
         if (psc == null) {
-            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
-            return asXMLString(output);
+            return getAppointmentUnavailabilityError(output, appointmentList);
         }
 
         Element labTests = (Element) appointment.getElementsByTagName("labTests").item(0);
@@ -257,15 +252,13 @@ public class LAMSService {
             String labTestId = node.getAttribute("id");
             LabTest labTest = businessLayer.getLabTest(labTestId);
             if (labTest == null) {
-                appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
-                return asXMLString(output);
+                return getAppointmentUnavailabilityError(output, appointmentList);
             }
 
             String dxcode = node.getAttribute("dxcode");
             Diagnosis diagnosis = businessLayer.getDiagnosis(dxcode);
             if (diagnosis == null) {
-                appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
-                return asXMLString(output);
+                return getAppointmentUnavailabilityError(output, appointmentList);
             }
 
             AppointmentLabTest test = new AppointmentLabTest(newAppointmentID, labTestId, dxcode);
@@ -282,8 +275,7 @@ public class LAMSService {
         calendar.set(Calendar.MINUTE, min);
         Time time = new Time(calendar.getTimeInMillis());
         if (!businessLayer.isTimeValid(time)) {
-            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
-            return asXMLString(output);
+            return getAppointmentUnavailabilityError(output, appointmentList);
         }
 
         String d = appointment.getElementsByTagName("date").item(0).getTextContent();
@@ -291,8 +283,7 @@ public class LAMSService {
         try {
             date = Date.valueOf(d);
         } catch (Exception e) {
-            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
-            return asXMLString(output);
+            return getAppointmentUnavailabilityError(output, appointmentList);
         }
 
         if (businessLayer.isAppointmentAvailable(patient, phlebotomist, psc, time, date)) {
@@ -311,6 +302,10 @@ public class LAMSService {
             return getAppointment(newAppointmentID);
         }
 
+        return getAppointmentUnavailabilityError(output, appointmentList);
+    }
+
+    private String getAppointmentUnavailabilityError(Document output, Element appointmentList) {
         appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
         return asXMLString(output);
     }
