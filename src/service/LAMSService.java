@@ -2,13 +2,24 @@ package service;
 
 import business.BusinessLayer;
 import components.data.*;
-import org.dom4j.Document;
-import org.dom4j.DocumentException;
-import org.dom4j.DocumentHelper;
-import org.dom4j.Element;
-import org.dom4j.io.SAXReader;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.io.IOException;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.sql.Date;
 import java.sql.Time;
 import java.text.SimpleDateFormat;
@@ -41,20 +52,29 @@ public class LAMSService {
      * @return
      */
     public String getAllAppointments() {
-        dbSingleton = DBSingleton.getInstance();
-        dbSingleton.db.initialLoad("LAMS");
-        System.out.println("All appointments");
         List<Object> appointments = dbSingleton.db.getData("Appointment", "");
         if (appointments.isEmpty()) return "Appointment doesn't exist";
 
-        Document document = DocumentHelper.createDocument();
-        Element appointmentList = document.addElement("AppointmentList");
+        DocumentBuilderFactory dbFactory =
+                DocumentBuilderFactory.newInstance();
+        DocumentBuilder dBuilder = null;
+        Document doc;
+        try {
+            dBuilder = dbFactory.newDocumentBuilder();
+            doc = dBuilder.newDocument();
 
-        for (Object appointment : appointments) {
-            createAppointmentXML(appointmentList, (Appointment) appointment);
+            Element appointmentList = doc.createElement("AppointmentList");
+            doc.appendChild(appointmentList);
+
+            for (Object appointment : appointments) {
+                appointmentList.appendChild(createAppointmentXML(doc, (Appointment) appointment));
+            }
+
+        } catch (ParserConfigurationException e) {
+            return "getAppointment with number exception";
         }
 
-        return document.asXML();
+        return asXMLString(doc);
     }
 
     /**
@@ -64,76 +84,92 @@ public class LAMSService {
      * @return
      */
     public String getAppointment(String appointNumber) {
-        dbSingleton = DBSingleton.getInstance();
-        dbSingleton.db.initialLoad("LAMS");
         List<Object> appointments = dbSingleton.db.getData("Appointment", "id='" + appointNumber + "'");
         if (appointments.isEmpty()) return "Appointment doesn't exist";
 
-        Document document = DocumentHelper.createDocument();
-        Element appointmentList = document.addElement("AppointmentList");
+        DocumentBuilderFactory dbFactory =
+                DocumentBuilderFactory.newInstance();
+        DocumentBuilder dBuilder = null;
+        Document doc;
+        try {
+            dBuilder = dbFactory.newDocumentBuilder();
+            doc = dBuilder.newDocument();
 
-        for (Object appointment : appointments) {
-            createAppointmentXML(appointmentList, (Appointment) appointment);
+            Element appointmentList = doc.createElement("AppointmentList");
+            doc.appendChild(appointmentList);
+
+            for (Object appointment : appointments) {
+                appointmentList.appendChild(createAppointmentXML(doc, (Appointment) appointment));
+            }
+
+        } catch (ParserConfigurationException e) {
+            return "getAppointment with number exception";
         }
 
-        return document.asXML();
+        return asXMLString(doc);
     }
 
-    private void createAppointmentXML(Element appointmentList, Appointment appointmentObj) {
-        Element appointment = appointmentList.addElement("appointment");
-        appointment
-                .addAttribute("date", changeDateFormat(appointmentObj.getApptdate(), "YYYY-MM-dd"))
-                .addAttribute("id", appointmentObj.getId())
-                .addAttribute("time", changeTimeFormat(appointmentObj.getAppttime()));
+    private Element createAppointmentXML(Document doc, Appointment appointmentObj) {
+        Element appointment = doc.createElement("appointment");
 
-        createPatientXML(appointmentObj, appointment);
-        createPhlebotomistXML(appointmentObj, appointment);
-        createPscXML(appointmentObj, appointment);
-        createAllLabTestsXML(appointmentObj, appointment);
+        appointment.setAttribute("date", changeDateFormat(appointmentObj.getApptdate(), "YYYY-MM-dd"));
+        appointment.setAttribute("id", appointmentObj.getId());
+        appointment.setAttribute("time", changeTimeFormat(appointmentObj.getAppttime()));
+
+        appointment.appendChild(createPatientXML(doc, appointmentObj));
+        appointment.appendChild(createPhlebotomistXML(doc, appointmentObj));
+        appointment.appendChild(createPscXML(doc, appointmentObj));
+        appointment.appendChild(createAllLabTestsXML(doc, appointmentObj));
+
+        return appointment;
     }
 
-    private void createPatientXML(Appointment appointmentObj, Element appointment) {
-        Patient patientObj;
-        patientObj = appointmentObj.getPatientid();
-        Element patient = appointment.addElement("patient");
-        patient.addAttribute("id", patientObj.getId());
-        patient.addElement("name").addText(patientObj.getName());
-        patient.addElement("address").addText(patientObj.getAddress());
-        patient.addElement("insurance").addText(String.valueOf(patientObj.getInsurance()));
-        patient.addElement("dob").addText(changeDateFormat(patientObj.getDateofbirth(), "YYYY-MM-dd"));
+    private Element createPatientXML(Document doc, Appointment appointmentObj) {
+        Patient patientObj = appointmentObj.getPatientid();
+        Element patient = doc.createElement("patient");
+        patient.setAttribute("id", patientObj.getId());
+
+        patient.appendChild(getElement(doc, "name", patientObj.getName()));
+        patient.appendChild(getElement(doc, "address", patientObj.getAddress()));
+        patient.appendChild(getElement(doc, "insurance", String.valueOf(patientObj.getInsurance())));
+        patient.appendChild(getElement(doc, "dob", changeDateFormat(patientObj.getDateofbirth(), "YYYY-MM-dd")));
+
+        return patient;
     }
 
-    private void createPhlebotomistXML(Appointment appointmentObj, Element appointment) {
-        Phlebotomist phlebotomistObj;
-        phlebotomistObj = appointmentObj.getPhlebid();
-        Element phlebotomist = appointment.addElement("phlebotomist");
-        phlebotomist.addAttribute("id", phlebotomistObj.getId());
-        phlebotomist.addElement("name").addText(phlebotomistObj.getName());
+    private Element createPhlebotomistXML(Document doc, Appointment appointmentObj) {
+        Phlebotomist phlebotomistObj = appointmentObj.getPhlebid();
+        Element phlebotomist = doc.createElement("phlebotomist");
+        phlebotomist.setAttribute("id", phlebotomistObj.getId());
+        phlebotomist.appendChild(getElement(doc, "name", phlebotomistObj.getName()));
+        return phlebotomist;
     }
 
-    private void createPscXML(Appointment appointmentObj, Element appointment) {
-        PSC pscObj;
-        pscObj = appointmentObj.getPscid();
-        Element psc = appointment.addElement("psc");
-        psc.addAttribute("id", pscObj.getId());
-        psc.addElement("name").addText(pscObj.getName());
+    private Element createPscXML(Document doc, Appointment appointmentObj) {
+        PSC pscObj = appointmentObj.getPscid();
+        Element psc = doc.createElement("psc");
+        psc.setAttribute("id", pscObj.getId());
+        psc.appendChild(getElement(doc, "name", pscObj.getName()));
+        return psc;
     }
 
-    private void createAllLabTestsXML(Appointment appointmentObj, Element appointment) {
-        List<AppointmentLabTest> allLabTestsList;
-        Element allLabTests = appointment.addElement("allLabTests");
-        allLabTestsList = appointmentObj.getAppointmentLabTestCollection();
-        for (AppointmentLabTest labtest : allLabTestsList) {
-            createAppointmentLabTestXML(allLabTests, labtest);
+    private Element createAllLabTestsXML(Document doc, Appointment appointmentObj) {
+        List<AppointmentLabTest> allLabTestsList = appointmentObj.getAppointmentLabTestCollection();
+        Element allLabTests = doc.createElement("allLabTests");
+        if (allLabTestsList != null) {
+            for (AppointmentLabTest labTest : allLabTestsList) {
+                allLabTests.appendChild(createAppointmentLabTestXML(doc, labTest));
+            }
         }
+        return allLabTests;
     }
 
-    private void createAppointmentLabTestXML(Element allLabTests, AppointmentLabTest labtest) {
-        Element appointmentLabTest = allLabTests.addElement("appointmentLabTest");
-        appointmentLabTest
-                .addAttribute("appointmentId", labtest.getAppointment().getId())
-                .addAttribute("dxcode", labtest.getDiagnosis().getCode())
-                .addAttribute("labTestId", labtest.getLabTest().getId());
+    private Element createAppointmentLabTestXML(Document doc, AppointmentLabTest labTest) {
+        Element appointmentLabTest = doc.createElement("appointmentLabTest");
+        appointmentLabTest.setAttribute("appointmentId", labTest.getAppointment().getId());
+        appointmentLabTest.setAttribute("dxcode", labTest.getDiagnosis().getCode());
+        appointmentLabTest.setAttribute("labTestId", labTest.getLabTest().getId());
+        return appointmentLabTest;
     }
 
     private String changeTimeFormat(Time time) {
@@ -155,130 +191,153 @@ public class LAMSService {
     /**
      * Create a new appointment providing the required information in XML and receiving XML or error message
      *
-     * @param xmlStyle
+     * @param xml
      * @return
      */
-    public String addAppointment(String xmlStyle) {
-        xmlStyle = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>" +
-                "<appointment>" +
-                "<date>2018-12-28</date>" +
-                "<time>10:00</time>" +
-                "<patientId>220</patientId>" +
-                "<physicianId>20</physicianId>" +
-                "<pscId>520</pscId>" +
-                "<phlebotomistId>110</phlebotomistId>" +
-                "<labTests>" +
-                "<test id=\"86900\" dxcode=\"292.9\" />" +
-                "<test id=\"86609\" dxcode=\"307.3\" />" +
-                "</labTests>" +
-                "</appointment>";
+    public String addAppointment(String xml) {
+        xml = "<?xml version='1.0' encoding='utf-8' standalone='no'?><appointment><date>2018-12-28</date><time>10:00</time><patientId>220</patientId><physicianId>20</physicianId><pscId>520</pscId><phlebotomistId>110</phlebotomistId><labTests><test id='86900' dxcode='292.9' /><test id='86609' dxcode='307.3' /></labTests></appointment>";
 
-        Document outputDoc = DocumentHelper.createDocument();
-        Element appointmentList = outputDoc.addElement("AppointmentList");
-
-        SAXReader reader = new SAXReader();
+        DocumentBuilderFactory dbFactory =
+                DocumentBuilderFactory.newInstance();
+        DocumentBuilder dBuilder = null;
+        Document output;
         try {
-            Document inputDoc = reader.read(new StringReader(xmlStyle));
+            dBuilder = dbFactory.newDocumentBuilder();
+        } catch (ParserConfigurationException e) {
+            return "";
+        }
+        output = dBuilder.newDocument();
 
-            Element appointment = inputDoc.getRootElement();
-            String patientId = appointment.selectSingleNode("patientId").getText();
-            Patient patient = businessLayer.getPatient(patientId);
-            if (patient == null) {
-                appointmentList.addElement("error", "ERROR:Appointment is not available");
-                return outputDoc.asXML();
-            }
+        Element appointmentList = output.createElement("AppointmentList");
+        output.appendChild(appointmentList);
 
-            String phlebotomistId = appointment.selectSingleNode("phlebotomistId").getText();
-            Phlebotomist phlebotomist = businessLayer.getPhlebotomist(phlebotomistId);
-            if (phlebotomist == null) {
-                appointmentList.addElement("error", "ERROR:Appointment is not available");
-                return outputDoc.asXML();
-            }
+        Document input = null;
+        try {
+            InputSource is = new InputSource(new StringReader(xml));
+            input = dBuilder.parse(is);
+        } catch (SAXException | IOException e) {
+            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+            return asXMLString(output);
+        }
+        input.getDocumentElement().normalize();
+        Element appointment = input.getDocumentElement();
 
-            String physicianId = appointment.selectSingleNode("physicianId").getText();
-            Physician physician = businessLayer.getPhysician(physicianId);
-            if (physician == null) {
-                appointmentList.addElement("error", "ERROR:Appointment is not available");
-                return outputDoc.asXML();
-            }
-
-            String pscId = appointment.selectSingleNode("pscId").getText();
-            PSC psc = businessLayer.getPSC(pscId);
-            if (psc == null) {
-                appointmentList.addElement("error", "ERROR:Appointment is not available");
-                return outputDoc.asXML();
-            }
-
-            List nodes = appointment.selectNodes("labTests");
-            List<AppointmentLabTest> tests = new ArrayList<>();
-            for (Object node : nodes) {
-                String labTestId = ((Element) node).attributeValue("id");
-                LabTest labTest = businessLayer.getLabTest(labTestId);
-                if (labTest == null) {
-                    appointmentList.addElement("error", "ERROR:Appointment is not available");
-                    return outputDoc.asXML();
-                }
-
-                String dxcode = ((Element) node).attributeValue("dxcode");
-                Diagnosis diagnosis = businessLayer.getDiagnosis(dxcode);
-                if (diagnosis == null) {
-                    appointmentList.addElement("error", "ERROR:Appointment is not available");
-                    return outputDoc.asXML();
-                }
-
-                AppointmentLabTest test = new AppointmentLabTest("800", labTestId, dxcode);
-                test.setDiagnosis(diagnosis);
-                test.setLabTest(labTest);
-                tests.add(test);
-            }
-
-            String t = appointment.selectSingleNode("time").getText();
-            Time time;
-            try {
-                time = Time.valueOf(t);
-                if (!businessLayer.isTimeValid(time)) {
-                    appointmentList.addElement("error", "ERROR:Appointment is not available");
-                    return outputDoc.asXML();
-                }
-            } catch (Exception e) {
-                appointmentList.addElement("error", "ERROR:Appointment is not available");
-                return outputDoc.asXML();
-            }
-
-            String d = appointment.selectSingleNode("date").getText();
-            Date date;
-            try {
-                date = Date.valueOf(d);
-            } catch (Exception e) {
-                appointmentList.addElement("error", "ERROR:Appointment is not available");
-                return outputDoc.asXML();
-            }
-
-            if (businessLayer.isAppointmentAvailable(patient, phlebotomist, psc, time, date)) {
-                // TODO GET UNIQUE APPOINTMENT ID for "800"
-                Appointment newAppt = new Appointment();
-                newAppt.setAppttime(time);
-                newAppt.setApptdate(date);
-                newAppt.setAppointmentLabTestCollection(tests);
-                newAppt.setPatientid(patient);
-                newAppt.setPhlebid(phlebotomist);
-                newAppt.setPscid(psc);
-                newAppt.setId("801");
-
-                if (dbSingleton.db.addData(newAppt)) {
-                    return getAppointment("801");
-                }
-            } else {
-                appointmentList.addElement("error", "ERROR:Appointment is not available");
-                return outputDoc.asXML();
-            }
-
-
-        } catch (DocumentException e) {
-            e.printStackTrace();
+        String patientId = appointment.getElementsByTagName("patientId").item(0).getTextContent();
+        Patient patient = businessLayer.getPatient(patientId);
+        if (patient == null) {
+            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+            return asXMLString(output);
         }
 
-        appointmentList.addElement("error", "ERROR:Appointment is not available");
-        return outputDoc.asXML();
+        String phlebotomistId = appointment.getElementsByTagName("phlebotomistId").item(0).getTextContent();
+        Phlebotomist phlebotomist = businessLayer.getPhlebotomist(phlebotomistId);
+        if (phlebotomist == null) {
+            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+            return asXMLString(output);
+        }
+
+        String physicianId = appointment.getElementsByTagName("physicianId").item(0).getTextContent();
+        Physician physician = businessLayer.getPhysician(physicianId);
+        if (physician == null) {
+            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+            return asXMLString(output);
+        }
+
+        String pscId = appointment.getElementsByTagName("pscId").item(0).getTextContent();
+        PSC psc = businessLayer.getPSC(pscId);
+        if (psc == null) {
+            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+            return asXMLString(output);
+        }
+
+        Element labTests = (Element) appointment.getElementsByTagName("labTests").item(0);
+        NodeList nodes = labTests.getElementsByTagName("test");
+        List<AppointmentLabTest> tests = new ArrayList<>();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Element node = (Element) nodes.item(i);
+            String labTestId = node.getAttribute("id");
+            LabTest labTest = businessLayer.getLabTest(labTestId);
+            if (labTest == null) {
+                appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+                return asXMLString(output);
+            }
+
+            String dxcode = node.getAttribute("dxcode");
+            Diagnosis diagnosis = businessLayer.getDiagnosis(dxcode);
+            if (diagnosis == null) {
+                appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+                return asXMLString(output);
+            }
+
+            AppointmentLabTest test = new AppointmentLabTest("840", labTestId, dxcode);
+            test.setDiagnosis(diagnosis);
+            test.setLabTest(labTest);
+            tests.add(test);
+        }
+
+        String[] t = appointment.getElementsByTagName("time").item(0).getTextContent().split(":");
+        int hour = Integer.parseInt(t[0]);
+        int min = Integer.parseInt(t[1]);
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, hour);
+        calendar.set(Calendar.MINUTE, min);
+        Time time = new Time(calendar.getTimeInMillis());
+        if (!businessLayer.isTimeValid(time)) {
+            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+            return asXMLString(output);
+        }
+
+        String d = appointment.getElementsByTagName("date").item(0).getTextContent();
+        Date date;
+        try {
+            date = Date.valueOf(d);
+        } catch (Exception e) {
+            appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+            return asXMLString(output);
+        }
+
+        if (businessLayer.isAppointmentAvailable(patient, phlebotomist, psc, time, date)) {
+            // TODO GET UNIQUE APPOINTMENT ID for "800"
+            Appointment newAppt = new Appointment("840", date, time);
+            newAppt.setAppointmentLabTestCollection(tests);
+            newAppt.setPatientid(patient);
+            newAppt.setPhlebid(phlebotomist);
+            newAppt.setPscid(psc);
+
+            for (AppointmentLabTest test : tests) {
+                test.setAppointment(newAppt);
+            }
+
+            dbSingleton.db.addData(newAppt);
+
+            return getAppointment("840");
+        }
+
+        appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));
+        return asXMLString(output);
     }
+
+    private String asXMLString(Document doc) {
+        try {
+            StringWriter sw = new StringWriter();
+            TransformerFactory tf = TransformerFactory.newInstance();
+            Transformer transformer = tf.newTransformer();
+            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+            transformer.setOutputProperty(OutputKeys.METHOD, "xml");
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+
+            transformer.transform(new DOMSource(doc), new StreamResult(sw));
+            return sw.toString();
+        } catch (Exception ex) {
+            throw new RuntimeException("Error converting to String", ex);
+        }
+    }
+
+    private Node getElement(Document doc, String tag, String value) {
+        Element el = doc.createElement(tag);
+        el.setTextContent(value);
+        return el;
+    }
+
 }

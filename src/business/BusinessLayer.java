@@ -29,30 +29,31 @@ public class BusinessLayer {
     public boolean isAppointmentAvailable(Patient patient, Phlebotomist phlebotomist, PSC psc, Time time, Date date) {
         Calendar tCalendar = Calendar.getInstance();
         tCalendar.setTimeInMillis(time.getTime());
-        String t = tCalendar.get(Calendar.HOUR_OF_DAY) + "" + tCalendar.get(Calendar.MINUTE) + ":00"; // 1400:00
+        String t = tCalendar.get(Calendar.HOUR_OF_DAY) + ":" + tCalendar.get(Calendar.MINUTE) + ":00"; // 1400:00
 
         Calendar dCalendar = Calendar.getInstance();
         dCalendar.setTimeInMillis(date.getTime());
         String d = dCalendar.get(Calendar.MONTH) + "/" + dCalendar.get(Calendar.DATE) + "/" + dCalendar.get(Calendar.YEAR); // 2/1/2017
 
-        if (hasAppointment(patient, t, d)) return false;
+        if (hasAppointment(patient, time.getTime(), d)) return false;
         Appointment appointment = getLatestAppointment(phlebotomist, time, d);
         if (appointment == null) {
             return true;
         }
+
         Time apptTime = appointment.getAppttime();
         long diff = time.getTime() - apptTime.getTime();
         long minute = 60 * 1000;
         if (appointment.getPscid().getId().equals(psc.getId())) {
-            return diff / minute > 15;
+            return diff / minute >= 15;
         } else {
-            return diff / minute > 45;
+            return diff / minute >= 45;
         }
     }
 
     private Appointment getLatestAppointment(Phlebotomist phlebotomist, Time time, String d) {
         Appointment a = null;
-        List<Object> appointments = dbSingleton.db.getData("Appointment", "phlebid='" + phlebotomist.getId() + "' and apptdate='" + d);
+        List<Object> appointments = dbSingleton.db.getData("Appointment", "phlebid='" + phlebotomist.getId() + "' and apptdate='" + d + "'");
         for (Object obj : appointments) {
             Appointment appointment = (Appointment) obj;
             if (appointment.getAppttime().getTime() <= time.getTime()) a = appointment;
@@ -60,8 +61,15 @@ public class BusinessLayer {
         return a;
     }
 
-    private boolean hasAppointment(Patient patient, String t, String d) {
-        List<Object> appointments = dbSingleton.db.getData("Appointment", "patientid='" + patient.getId() + "' and apptdate='" + d + "' and appttime='" + t + "'");
+    private boolean hasAppointment(Patient patient, long t, String d) {
+        // TODO appttime
+        List<Object> appointments = dbSingleton.db.getData("Appointment", "patientid='" + patient.getId() + "' and apptdate='" + d + "'");
+        for (Object obj : appointments) {
+            Appointment appointment = (Appointment) obj;
+            if (Math.abs(appointment.getAppttime().getTime() - t) < (15 * 60 * 1000)) {
+                return true;
+            }
+        }
         return appointments != null && appointments.size() == 1;
     }
 
@@ -99,4 +107,10 @@ public class BusinessLayer {
         List<Object> dxcodes = dbSingleton.db.getData("Diagnosis", "CODE='" + dxcode + "'");
         return (Diagnosis) getObject(dxcodes);
     }
+
+//    public AppointmentLabTest getAppointmentLabTest(LabTest labTest, Diagnosis diagnosis) {
+//        System.out.println("LABTESTID='"+labTest.getId()+"' and DXCODE='"+diagnosis.getCode()+"'");
+//        List<Object> labTests = dbSingleton.db.getData("APPOINTMENTLABTEST", "LABTESTID='"+labTest.getId()+"' and DXCODE='"+diagnosis.getCode()+"'");
+//        return (AppointmentLabTest) getObject(labTests);
+//    }
 }
