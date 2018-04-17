@@ -195,10 +195,9 @@ public class LAMSService {
      * @return
      */
     public String addAppointment(String xml) {
-        xml = "<?xml version='1.0' encoding='utf-8' standalone='no'?><appointment><date>2018-12-28</date><time>10:00</time><patientId>220</patientId><physicianId>20</physicianId><pscId>520</pscId><phlebotomistId>110</phlebotomistId><labTests><test id='86900' dxcode='292.9' /><test id='86609' dxcode='307.3' /></labTests></appointment>";
+        String newAppointmentID = businessLayer.getNewAppointmentID();
 
-        DocumentBuilderFactory dbFactory =
-                DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder dBuilder = null;
         Document output;
         try {
@@ -269,7 +268,7 @@ public class LAMSService {
                 return asXMLString(output);
             }
 
-            AppointmentLabTest test = new AppointmentLabTest("840", labTestId, dxcode);
+            AppointmentLabTest test = new AppointmentLabTest(newAppointmentID, labTestId, dxcode);
             test.setDiagnosis(diagnosis);
             test.setLabTest(labTest);
             tests.add(test);
@@ -297,8 +296,7 @@ public class LAMSService {
         }
 
         if (businessLayer.isAppointmentAvailable(patient, phlebotomist, psc, time, date)) {
-            // TODO GET UNIQUE APPOINTMENT ID for "800"
-            Appointment newAppt = new Appointment("840", date, time);
+            Appointment newAppt = new Appointment(newAppointmentID, date, time);
             newAppt.setAppointmentLabTestCollection(tests);
             newAppt.setPatientid(patient);
             newAppt.setPhlebid(phlebotomist);
@@ -310,7 +308,7 @@ public class LAMSService {
 
             dbSingleton.db.addData(newAppt);
 
-            return getAppointment("840");
+            return getAppointment(newAppointmentID);
         }
 
         appointmentList.appendChild(getElement(output, "error", "ERROR:Appointment is not available"));

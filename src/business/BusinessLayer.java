@@ -108,9 +108,9 @@ public class BusinessLayer {
         return (Diagnosis) getObject(dxcodes);
     }
 
-//    public AppointmentLabTest getAppointmentLabTest(LabTest labTest, Diagnosis diagnosis) {
-//        System.out.println("LABTESTID='"+labTest.getId()+"' and DXCODE='"+diagnosis.getCode()+"'");
-//        List<Object> labTests = dbSingleton.db.getData("APPOINTMENTLABTEST", "LABTESTID='"+labTest.getId()+"' and DXCODE='"+diagnosis.getCode()+"'");
-//        return (AppointmentLabTest) getObject(labTests);
-//    }
+    public String getNewAppointmentID() {
+        List<Object> appointments = dbSingleton.db.getData("Appointment", "ID is not null order by id desc");
+        if (appointments.isEmpty()) return "1";
+        else return String.valueOf(Integer.parseInt(((Appointment) appointments.get(0)).getId()) + 10);
+    }
 }
