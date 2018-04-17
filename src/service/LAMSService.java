@@ -114,7 +114,7 @@ public class LAMSService {
 
         appointment.setAttribute("date", changeDateFormat(appointmentObj.getApptdate(), "YYYY-MM-dd"));
         appointment.setAttribute("id", appointmentObj.getId());
-        appointment.setAttribute("time", changeTimeFormat(appointmentObj.getAppttime()));
+        appointment.setAttribute("time", appointmentObj.getAppttime().toString());
 
         appointment.appendChild(createPatientXML(doc, appointmentObj));
         appointment.appendChild(createPhlebotomistXML(doc, appointmentObj));
@@ -172,11 +172,11 @@ public class LAMSService {
         return appointmentLabTest;
     }
 
-    private String changeTimeFormat(Time time) {
-        Calendar t = Calendar.getInstance();
-        t.setTimeInMillis(time.getTime());
-        return t.get(Calendar.HOUR_OF_DAY) + "" + t.get(Calendar.MINUTE) + "" + t.get(Calendar.SECOND);
-    }
+//    private String changeTimeFormat(Time time) {
+//        Calendar t = Calendar.getInstance();
+//        t.setTimeInMillis(time.getTime());
+//        return t.get(Calendar.HOUR_OF_DAY) + "/" + t.get(Calendar.MINUTE) + "" + t.get(Calendar.SECOND);
+//    }
 
     private String changeDateFormat(java.sql.Date date, String to) {
         SimpleDateFormat DATE_FORMAT = new SimpleDateFormat(to);
@@ -273,6 +273,7 @@ public class LAMSService {
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.HOUR_OF_DAY, hour);
         calendar.set(Calendar.MINUTE, min);
+        calendar.set(Calendar.SECOND, 0);
         Time time = new Time(calendar.getTimeInMillis());
         if (!businessLayer.isTimeValid(time)) {
             return getAppointmentUnavailabilityError(output, appointmentList);

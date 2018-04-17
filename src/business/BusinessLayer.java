@@ -7,6 +7,7 @@ import java.sql.Date;
 import java.sql.Time;
 import java.util.Calendar;
 import java.util.List;
+import java.util.ListIterator;
 
 /**
  * Created by Palash on 4/9/2018.
@@ -27,7 +28,8 @@ public class BusinessLayer {
     }
 
     public boolean isAppointmentAvailable(Patient patient, Phlebotomist phlebotomist, PSC psc, Time time, Date date) {
-        if (hasAppointment(patient, time.getTime(), date)) return false;
+        if (hasAppointment(patient, time, date)) return false;
+
         Appointment appointment = getLatestAppointment(phlebotomist, time, date);
         if (appointment == null) {
             return true;
@@ -46,10 +48,9 @@ public class BusinessLayer {
     private Appointment getLatestAppointment(Phlebotomist phlebotomist, Time time, Date date) {
         Calendar dCalendar = Calendar.getInstance();
         dCalendar.setTimeInMillis(date.getTime());
-        String d = (dCalendar.get(Calendar.MONTH)+1) + "/" + dCalendar.get(Calendar.DATE) + "/" + dCalendar.get(Calendar.YEAR); // 2/1/2017
 
         Appointment a = null;
-        List<Object> appointments = dbSingleton.db.getData("Appointment", "phlebid='" + phlebotomist.getId() + "' and apptdate='" + d + "'");
+        List<Object> appointments = dbSingleton.db.getData("Appointment", "phlebid='" + phlebotomist.getId() + "' and apptdate='" + date.toString() + "'");
 
         for (Object obj : appointments) {
             Appointment appointment = (Appointment) obj;
@@ -58,19 +59,30 @@ public class BusinessLayer {
         return a;
     }
 
-    private boolean hasAppointment(Patient patient, long t, Date date) {
+    private boolean hasAppointment(Patient patient, Time time, Date date) {
         Calendar dCalendar = Calendar.getInstance();
         dCalendar.setTimeInMillis(date.getTime());
-        String d = (dCalendar.get(Calendar.MONTH)+1) + "/" + dCalendar.get(Calendar.DATE) + "/" + dCalendar.get(Calendar.YEAR); // 2/1/2017
+        String d = (dCalendar.get(Calendar.MONTH) + 1) + "/" + dCalendar.get(Calendar.DATE) + "/" + dCalendar.get(Calendar.YEAR); // 2/1/2017
 
         List<Object> appointments = dbSingleton.db.getData("Appointment", "patientid='" + patient.getId() + "' and apptdate='" + d + "'");
-        for (Object obj : appointments) {
-            Appointment appointment = (Appointment) obj;
-            if (Math.abs(appointment.getAppttime().getTime() - t) < (15 * 60 * 1000)) {
-                return true;
+        if (appointments == null || appointments.isEmpty()) return false;
+
+        Calendar tCalendar = Calendar.getInstance();
+        tCalendar.setTimeInMillis(time.getTime());
+
+        ListIterator<Object> iterator = appointments.listIterator();
+        while(iterator.hasNext()){
+            Appointment appointment = (Appointment) iterator.next();
+            Calendar aCalendar = Calendar.getInstance();
+            aCalendar.setTimeInMillis(appointment.getAppttime().getTime());
+            if (aCalendar.get(Calendar.HOUR) != tCalendar.get(Calendar.HOUR)) {
+                iterator.remove();
+            } else if (Math.abs(aCalendar.get(Calendar.MINUTE) - tCalendar.get(Calendar.MINUTE)) >= 15) {
+                iterator.remove();
             }
         }
-        return appointments != null && appointments.size() > 0;
+
+        return appointments.size() > 0;
     }
 
     public Patient getPatient(String patientId) {
