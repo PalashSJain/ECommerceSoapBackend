@@ -68,7 +68,7 @@ public class LAMSService {
             }
 
         } catch (ParserConfigurationException e) {
-            return "getAppointment with number exception";
+            return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointments are not available</error></AppointmentList>";
         }
 
         return asXMLString(doc);
@@ -100,7 +100,7 @@ public class LAMSService {
             }
 
         } catch (ParserConfigurationException e) {
-            return "getAppointment with number exception";
+            return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointment is not available</error></AppointmentList>";
         }
 
         return asXMLString(doc);
@@ -168,12 +168,6 @@ public class LAMSService {
         appointmentLabTest.setAttribute("labTestId", labTest.getLabTest().getId());
         return appointmentLabTest;
     }
-
-//    private String changeTimeFormat(Time time) {
-//        Calendar t = Calendar.getInstance();
-//        t.setTimeInMillis(time.getTime());
-//        return t.get(Calendar.HOUR_OF_DAY) + "/" + t.get(Calendar.MINUTE) + "" + t.get(Calendar.SECOND);
-//    }
 
     private String changeDateFormat(java.sql.Date date, String to) {
         SimpleDateFormat DATE_FORMAT = new SimpleDateFormat(to);
@@ -295,7 +289,7 @@ public class LAMSService {
                 test.setAppointment(newAppt);
             }
 
-            if (businessLayer.addData(newAppt)){
+            if (businessLayer.addData(newAppt)) {
                 return getAppointment(newAppointmentID);
             }
         }
