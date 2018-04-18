@@ -125,4 +125,18 @@ public class BusinessLayer {
         if (appointments.isEmpty()) return "1";
         else return String.valueOf(Integer.parseInt(((Appointment) appointments.get(0)).getId()) + 10);
     }
+
+    public String initialize() {
+        dbSingleton = DBSingleton.getInstance();
+        dbSingleton.db.initialLoad("LAMS");
+        return "Database Initialized";
+    }
+
+    public List<Object> getData(String table, String query) {
+        return dbSingleton.db.getData(table, query);
+    }
+
+    public boolean addData(Object obj) {
+        return dbSingleton.db.addData(obj);
+    }
 }

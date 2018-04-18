@@ -31,19 +31,16 @@ import java.util.List;
  * Created by Palash on 4/9/2018.
  */
 public class LAMSService {
-    DBSingleton dbSingleton;
     BusinessLayer businessLayer;
 
     /**
-     * Initializes the database
+     * Initializes the Business Layer
      *
      * @return
      */
     public String initialize() {
         businessLayer = new BusinessLayer();
-        dbSingleton = DBSingleton.getInstance();
-        dbSingleton.db.initialLoad("LAMS");
-        return "Database Initialized";
+        return businessLayer.initialize();
     }
 
     /**
@@ -52,7 +49,7 @@ public class LAMSService {
      * @return
      */
     public String getAllAppointments() {
-        List<Object> appointments = dbSingleton.db.getData("Appointment", "");
+        List<Object> appointments = businessLayer.getData("Appointment", "");
         if (appointments.isEmpty()) return "Appointment doesn't exist";
 
         DocumentBuilderFactory dbFactory =
@@ -84,7 +81,7 @@ public class LAMSService {
      * @return
      */
     public String getAppointment(String appointNumber) {
-        List<Object> appointments = dbSingleton.db.getData("Appointment", "id='" + appointNumber + "'");
+        List<Object> appointments = businessLayer.getData("Appointment", "id='" + appointNumber + "'");
         if (appointments.isEmpty()) return "Appointment doesn't exist";
 
         DocumentBuilderFactory dbFactory =
@@ -298,9 +295,9 @@ public class LAMSService {
                 test.setAppointment(newAppt);
             }
 
-            dbSingleton.db.addData(newAppt);
-
-            return getAppointment(newAppointmentID);
+            if (businessLayer.addData(newAppt)){
+                return getAppointment(newAppointmentID);
+            }
         }
 
         return getAppointmentUnavailabilityError(output, appointmentList);
