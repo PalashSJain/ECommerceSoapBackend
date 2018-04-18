@@ -9,11 +9,8 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.ListIterator;
 
-/**
- * Created by Palash on 4/9/2018.
- */
 public class BusinessLayer {
-    DBSingleton dbSingleton;
+    private DBSingleton dbSingleton;
 
     public BusinessLayer() {
         dbSingleton = DBSingleton.getInstance();

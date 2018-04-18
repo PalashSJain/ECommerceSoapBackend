@@ -27,18 +27,15 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
-/**
- * Created by Palash on 4/9/2018.
- */
 public class LAMSService {
-    BusinessLayer businessLayer;
+    private BusinessLayer businessLayer;
 
     /**
      * Initializes the Business Layer
      *
-     * @return
+     * @return String 'Database initialized'
      */
-    public String initialize() {
+    String initialize() {
         businessLayer = new BusinessLayer();
         return businessLayer.initialize();
     }
@@ -46,64 +43,52 @@ public class LAMSService {
     /**
      * Return a list of all appointments and related information.
      *
-     * @return
+     * @return String XML formatted string of all appointments
      */
     public String getAllAppointments() {
         List<Object> appointments = businessLayer.getData("Appointment", "");
         if (appointments.isEmpty()) return "Appointment doesn't exist";
 
-        DocumentBuilderFactory dbFactory =
-                DocumentBuilderFactory.newInstance();
-        DocumentBuilder dBuilder = null;
-        Document doc;
         try {
-            dBuilder = dbFactory.newDocumentBuilder();
-            doc = dBuilder.newDocument();
-
-            Element appointmentList = doc.createElement("AppointmentList");
-            doc.appendChild(appointmentList);
-
-            for (Object appointment : appointments) {
-                appointmentList.appendChild(createAppointmentXML(doc, (Appointment) appointment));
-            }
-
+            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+            Document doc = getAppointmentsXML(appointments, dbFactory);
+            return asXMLString(doc);
         } catch (ParserConfigurationException e) {
             return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointments are not available</error></AppointmentList>";
         }
-
-        return asXMLString(doc);
     }
 
     /**
      * Return a specific appointment and related information
      *
-     * @param appointNumber
-     * @return
+     * @param appointNumber String appointment number
+     * @return String XML formatted string of appointment number appointNumber
      */
-    public String getAppointment(String appointNumber) {
+    String getAppointment(String appointNumber) {
         List<Object> appointments = businessLayer.getData("Appointment", "id='" + appointNumber + "'");
         if (appointments.isEmpty()) return "Appointment doesn't exist";
 
-        DocumentBuilderFactory dbFactory =
-                DocumentBuilderFactory.newInstance();
-        DocumentBuilder dBuilder = null;
-        Document doc;
         try {
-            dBuilder = dbFactory.newDocumentBuilder();
-            doc = dBuilder.newDocument();
-
-            Element appointmentList = doc.createElement("AppointmentList");
-            doc.appendChild(appointmentList);
-
-            for (Object appointment : appointments) {
-                appointmentList.appendChild(createAppointmentXML(doc, (Appointment) appointment));
-            }
-
+            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+            Document doc = getAppointmentsXML(appointments, dbFactory);
+            return asXMLString(doc);
         } catch (ParserConfigurationException e) {
             return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointment is not available</error></AppointmentList>";
         }
+    }
 
-        return asXMLString(doc);
+    private Document getAppointmentsXML(List<Object> appointments, DocumentBuilderFactory dbFactory) throws ParserConfigurationException {
+        DocumentBuilder dBuilder;
+        dBuilder = dbFactory.newDocumentBuilder();
+        Document doc = dBuilder.newDocument();
+
+        Element appointmentList = doc.createElement("AppointmentList");
+        doc.appendChild(appointmentList);
+
+        for (Object appointment : appointments) {
+            appointmentList.appendChild(createAppointmentXML(doc, (Appointment) appointment));
+        }
+        return doc;
     }
 
     private Element createAppointmentXML(Document doc, Appointment appointmentObj) {
@@ -182,8 +167,8 @@ public class LAMSService {
     /**
      * Create a new appointment providing the required information in XML and receiving XML or error message
      *
-     * @param xml
-     * @return
+     * @param xml String for appointment input
+     * @return String xml formatted get appointment information of newly added appointment
      */
     public String addAppointment(String xml) {
         String newAppointmentID = businessLayer.getNewAppointmentID();
