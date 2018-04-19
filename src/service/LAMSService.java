@@ -9,6 +9,9 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
+import javax.jws.WebMethod;
+import javax.jws.WebService;
+import javax.ws.rs.PathParam;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -24,9 +27,9 @@ import java.sql.Date;
 import java.sql.Time;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
+@WebService(serviceName = "LAMSService")
 public class LAMSService {
     private BusinessLayer businessLayer;
 
@@ -35,7 +38,8 @@ public class LAMSService {
      *
      * @return String 'Database initialized'
      */
-    String initialize() {
+    @WebMethod(operationName = "Initialize")
+    public String initialize() {
         businessLayer = new BusinessLayer();
         return businessLayer.initialize();
     }
@@ -45,9 +49,11 @@ public class LAMSService {
      *
      * @return String XML formatted string of all appointments
      */
+    @WebMethod(operationName = "AllAppointments")
     public String getAllAppointments() {
         List<Object> appointments = businessLayer.getData("Appointment", "");
-        if (appointments.isEmpty()) return "Appointment doesn't exist";
+        if (appointments.isEmpty())
+            return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointments are not available</error></AppointmentList>";
 
         try {
             DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -64,7 +70,8 @@ public class LAMSService {
      * @param appointNumber String appointment number
      * @return String XML formatted string of appointment number appointNumber
      */
-    String getAppointment(String appointNumber) {
+    @WebMethod(operationName = "Appointment")
+    public String getAppointment(@PathParam("appointmentNumber") String appointNumber) {
         List<Object> appointments = businessLayer.getData("Appointment", "id='" + appointNumber + "'");
         if (appointments.isEmpty()) return "Appointment doesn't exist";
 
@@ -170,6 +177,7 @@ public class LAMSService {
      * @param xml String for appointment input
      * @return String xml formatted get appointment information of newly added appointment
      */
+    @WebMethod(operationName = "AddAppointment")
     public String addAppointment(String xml) {
         String newAppointmentID = businessLayer.getNewAppointmentID();
 
@@ -179,7 +187,7 @@ public class LAMSService {
         try {
             dBuilder = dbFactory.newDocumentBuilder();
         } catch (ParserConfigurationException e) {
-            return "";
+            return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointment not available</error></AppointmentList>";
         }
         output = dBuilder.newDocument();
 
@@ -243,15 +251,14 @@ public class LAMSService {
             tests.add(test);
         }
 
-        String[] t = appointment.getElementsByTagName("time").item(0).getTextContent().split(":");
-        int hour = Integer.parseInt(t[0]);
-        int min = Integer.parseInt(t[1]);
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, hour);
-        calendar.set(Calendar.MINUTE, min);
-        calendar.set(Calendar.SECOND, 0);
-        Time time = new Time(calendar.getTimeInMillis());
-        if (!businessLayer.isTimeValid(time)) {
+        String t = appointment.getElementsByTagName("time").item(0).getTextContent();
+        Time time = null;
+        try {
+            time = Time.valueOf(t + ":00");
+            if (!businessLayer.isTimeValid(time)) {
+                return getAppointmentUnavailabilityError(output, appointmentList);
+            }
+        } catch (Exception e) {
             return getAppointmentUnavailabilityError(output, appointmentList);
         }
 
