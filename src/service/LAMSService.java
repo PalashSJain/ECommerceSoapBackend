@@ -20,6 +20,7 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -53,14 +54,18 @@ public class LAMSService {
     public String getAllAppointments() {
         List<Object> appointments = businessLayer.getData("Appointment", "");
         if (appointments.isEmpty())
-            return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointments are not available</error></AppointmentList>";
+            return getDefaultAppointmentUnavailableXML();
 
+        return createAppointmentsXML(appointments);
+    }
+
+    private String createAppointmentsXML(List<Object> appointments) {
         try {
             DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
             Document doc = getAppointmentsXML(appointments, dbFactory);
             return asXMLString(doc);
         } catch (ParserConfigurationException e) {
-            return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointments are not available</error></AppointmentList>";
+            return getDefaultAppointmentUnavailableXML();
         }
     }
 
@@ -72,16 +77,15 @@ public class LAMSService {
      */
     @WebMethod(operationName = "Appointment")
     public String getAppointment(@PathParam("appointmentNumber") String appointNumber) {
-        List<Object> appointments = businessLayer.getData("Appointment", "id='" + appointNumber + "'");
-        if (appointments.isEmpty()) return "Appointment doesn't exist";
+        return getAppointmentWithID(appointNumber);
+    }
 
-        try {
-            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-            Document doc = getAppointmentsXML(appointments, dbFactory);
-            return asXMLString(doc);
-        } catch (ParserConfigurationException e) {
-            return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointment is not available</error></AppointmentList>";
-        }
+    private String getAppointmentWithID(String appointNumber) {
+        List<Object> appointments = businessLayer.getData("Appointment", "id='" + appointNumber + "'");
+        if (appointments.isEmpty())
+            return getDefaultAppointmentUnavailableXML();
+
+        return createAppointmentsXML(appointments);
     }
 
     private Document getAppointmentsXML(List<Object> appointments, DocumentBuilderFactory dbFactory) throws ParserConfigurationException {
@@ -179,24 +183,25 @@ public class LAMSService {
      */
     @WebMethod(operationName = "AddAppointment")
     public String addAppointment(String xml) {
+        xml = xml.trim();
         String newAppointmentID = businessLayer.getNewAppointmentID();
 
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder dBuilder = null;
+        DocumentBuilder dBuilder;
         Document output;
         try {
             dBuilder = dbFactory.newDocumentBuilder();
         } catch (ParserConfigurationException e) {
-            return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointment not available</error></AppointmentList>";
+            return getDefaultAppointmentUnavailableXML();
         }
         output = dBuilder.newDocument();
 
         Element appointmentList = output.createElement("AppointmentList");
         output.appendChild(appointmentList);
 
-        Document input = null;
+        Document input;
+        InputSource is = new InputSource(new StringReader(xml));
         try {
-            InputSource is = new InputSource(new StringReader(xml));
             input = dBuilder.parse(is);
         } catch (SAXException | IOException e) {
             return getAppointmentUnavailabilityError(output, appointmentList);
@@ -252,7 +257,7 @@ public class LAMSService {
         }
 
         String t = appointment.getElementsByTagName("time").item(0).getTextContent();
-        Time time = null;
+        Time time;
         try {
             time = Time.valueOf(t + ":00");
             if (!businessLayer.isTimeValid(time)) {
@@ -282,7 +287,7 @@ public class LAMSService {
             }
 
             if (businessLayer.addData(newAppt)) {
-                return getAppointment(newAppointmentID);
+                return getAppointmentWithID(newAppointmentID);
             }
         }
 
@@ -301,7 +306,6 @@ public class LAMSService {
             Transformer transformer = tf.newTransformer();
             transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
             transformer.setOutputProperty(OutputKeys.METHOD, "xml");
-            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
             transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
 
             transformer.transform(new DOMSource(doc), new StreamResult(sw));
@@ -309,6 +313,10 @@ public class LAMSService {
         } catch (Exception ex) {
             throw new RuntimeException("Error converting to String", ex);
         }
+    }
+
+    private String getDefaultAppointmentUnavailableXML() {
+        return "<![CDATA[<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointment is not available</error></AppointmentList>]]>";
     }
 
     private Node getElement(Document doc, String tag, String value) {

@@ -83,17 +83,35 @@ public class BusinessLayer {
     }
 
     public Patient getPatient(String patientId) {
-        List<Object> patients = dbSingleton.db.getData("Patient", "id='" + patientId + "'");
+        int id;
+        try {
+            id = Integer.parseInt(patientId);
+        } catch (Exception e){
+            return null;
+        }
+        List<Object> patients = dbSingleton.db.getData("Patient", "id='" + id + "'");
         return (Patient) getObject(patients);
     }
 
     public Phlebotomist getPhlebotomist(String phlebotomistId) {
-        List<Object> phlebotomists = dbSingleton.db.getData("Phlebotomist", "ID='" + phlebotomistId + "'");
+        int id;
+        try {
+            id = Integer.parseInt(phlebotomistId);
+        } catch (Exception e){
+            return null;
+        }
+        List<Object> phlebotomists = dbSingleton.db.getData("Phlebotomist", "ID='" + id + "'");
         return (Phlebotomist) getObject(phlebotomists);
     }
 
     public Physician getPhysician(String physicianId) {
-        List<Object> physicians = dbSingleton.db.getData("Physician", "id='" + physicianId + "'");
+        int id;
+        try {
+            id = Integer.parseInt(physicianId);
+        } catch (Exception e){
+            return null;
+        }
+        List<Object> physicians = dbSingleton.db.getData("Physician", "id='" + id + "'");
         return (Physician) getObject(physicians);
     }
 
@@ -103,16 +121,29 @@ public class BusinessLayer {
     }
 
     public PSC getPSC(String pscId) {
-        List<Object> PSCs = dbSingleton.db.getData("PSC", "id='" + pscId + "'");
+        int id;
+        try {
+            id = Integer.parseInt(pscId);
+        } catch (Exception e){
+            return null;
+        }
+        List<Object> PSCs = dbSingleton.db.getData("PSC", "id='" + id + "'");
         return (PSC) getObject(PSCs);
     }
 
     public LabTest getLabTest(String labTestId) {
-        List<Object> labTests = dbSingleton.db.getData("LabTest", "id='" + labTestId + "'");
+        int id;
+        try {
+            id = Integer.parseInt(labTestId);
+        } catch (Exception e){
+            return null;
+        }
+        List<Object> labTests = dbSingleton.db.getData("LabTest", "id='" + id + "'");
         return (LabTest) getObject(labTests);
     }
 
     public Diagnosis getDiagnosis(String dxcode) {
+
         List<Object> dxcodes = dbSingleton.db.getData("Diagnosis", "CODE='" + dxcode + "'");
         return (Diagnosis) getObject(dxcodes);
     }
