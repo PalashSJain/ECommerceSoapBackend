@@ -68,13 +68,15 @@ public class BusinessLayer {
         tCalendar.setTimeInMillis(time.getTime());
 
         ListIterator<Object> iterator = appointments.listIterator();
-        while(iterator.hasNext()){
+        while (iterator.hasNext()) {
             Appointment appointment = (Appointment) iterator.next();
             Calendar aCalendar = Calendar.getInstance();
             aCalendar.setTimeInMillis(appointment.getAppttime().getTime());
-            if (aCalendar.get(Calendar.HOUR) != tCalendar.get(Calendar.HOUR)) {
-                iterator.remove();
-            } else if (Math.abs(aCalendar.get(Calendar.MINUTE) - tCalendar.get(Calendar.MINUTE)) >= 15) {
+
+            int aMin = (aCalendar.get(Calendar.HOUR) * 60) + aCalendar.get(Calendar.MINUTE);
+            int tMin = (tCalendar.get(Calendar.HOUR) * 60) + tCalendar.get(Calendar.MINUTE);
+
+            if (Math.abs(aMin - tMin) >= 15) {
                 iterator.remove();
             }
         }
@@ -86,7 +88,7 @@ public class BusinessLayer {
         int id;
         try {
             id = Integer.parseInt(patientId);
-        } catch (Exception e){
+        } catch (Exception e) {
             return null;
         }
         List<Object> patients = dbSingleton.db.getData("Patient", "id='" + id + "'");
@@ -97,7 +99,7 @@ public class BusinessLayer {
         int id;
         try {
             id = Integer.parseInt(phlebotomistId);
-        } catch (Exception e){
+        } catch (Exception e) {
             return null;
         }
         List<Object> phlebotomists = dbSingleton.db.getData("Phlebotomist", "ID='" + id + "'");
@@ -108,7 +110,7 @@ public class BusinessLayer {
         int id;
         try {
             id = Integer.parseInt(physicianId);
-        } catch (Exception e){
+        } catch (Exception e) {
             return null;
         }
         List<Object> physicians = dbSingleton.db.getData("Physician", "id='" + id + "'");
@@ -124,7 +126,7 @@ public class BusinessLayer {
         int id;
         try {
             id = Integer.parseInt(pscId);
-        } catch (Exception e){
+        } catch (Exception e) {
             return null;
         }
         List<Object> PSCs = dbSingleton.db.getData("PSC", "id='" + id + "'");
@@ -135,7 +137,7 @@ public class BusinessLayer {
         int id;
         try {
             id = Integer.parseInt(labTestId);
-        } catch (Exception e){
+        } catch (Exception e) {
             return null;
         }
         List<Object> labTests = dbSingleton.db.getData("LabTest", "id='" + id + "'");
