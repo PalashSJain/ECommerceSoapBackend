@@ -2,16 +2,13 @@ package service;
 
 import business.BusinessLayer;
 import components.data.*;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import org.w3c.dom.*;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
-import javax.jws.WebMethod;
-import javax.jws.WebService;
-import javax.ws.rs.PathParam;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.UriInfo;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -20,7 +17,6 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -30,8 +26,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
-@WebService(serviceName = "LAMSService")
+@Path("Services")
 public class LAMSService {
+    @Context
+    private UriInfo context;
+
     private BusinessLayer businessLayer;
 
     /**
@@ -39,10 +38,37 @@ public class LAMSService {
      *
      * @return String 'Database initialized'
      */
-    @WebMethod(operationName = "Initialize")
+    @GET
+    @Produces("application/xml")
     public String initialize() {
         businessLayer = new BusinessLayer();
-        return businessLayer.initialize();
+        businessLayer.initialize();
+
+
+        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder dBuilder;
+        try {
+            dBuilder = dbFactory.newDocumentBuilder();
+            Document doc = dBuilder.newDocument();
+
+            Element appointmentList = doc.createElement("AppointmentList");
+            doc.appendChild(appointmentList);
+
+            Element intro = doc.createElement("intro");
+            Text introText = doc.createTextNode("Welcome to the LAMS Appointment Service");
+            intro.appendChild(introText);
+            appointmentList.appendChild(intro);
+
+            Element wadl = doc.createElement("wadl");
+            Text wadlText = doc.createTextNode(this.context.getBaseUri().toString() + "application.wadl");
+            wadl.appendChild(wadlText);
+            appointmentList.appendChild(wadl);
+
+            return asXMLString(doc);
+        } catch (ParserConfigurationException e) {
+            e.printStackTrace();
+        }
+        return "<AppointmentsList>Failed to load database</AppointmentsList>";
     }
 
     /**
@@ -50,8 +76,11 @@ public class LAMSService {
      *
      * @return String XML formatted string of all appointments
      */
-    @WebMethod(operationName = "AllAppointments")
+    @Path("Appointments")
+    @GET
+    @Produces("application/xml")
     public String getAllAppointments() {
+        businessLayer = new BusinessLayer();
         List<Object> appointments = businessLayer.getData("Appointment", "");
         if (appointments.isEmpty())
             return getDefaultAppointmentUnavailableXML();
@@ -69,24 +98,61 @@ public class LAMSService {
         }
     }
 
+    private String getAppointmentURIXML(List<Object> appointments) {
+        try {
+            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+            Document doc = getAppointmentsURIXML(appointments, dbFactory);
+            return asXMLString(doc);
+        } catch (ParserConfigurationException e) {
+            return getDefaultAppointmentUnavailableXML();
+        }
+    }
+
     /**
      * Return a specific appointment and related information
      *
      * @param appointNumber String appointment number
      * @return String XML formatted string of appointment number appointNumber
      */
-    @WebMethod(operationName = "Appointment")
-    public String getAppointment(@PathParam("appointmentNumber") String appointNumber) {
+    @Path("Appointments/{appointment}")
+    @GET
+    @Produces("application/xml")
+    public String getAppointment(@PathParam("appointment") String appointNumber) {
         return getAppointmentWithID(appointNumber);
     }
 
     private String getAppointmentWithID(String appointNumber) {
+        businessLayer = new BusinessLayer();
         List<Object> appointments = businessLayer.getData("Appointment", "id='" + appointNumber + "'");
         if (appointments.isEmpty())
             return getDefaultAppointmentUnavailableXML();
 
         return createAppointmentsXML(appointments);
     }
+
+    private String getAppointmentWithIDWithoutBody(String appointNumber) {
+        businessLayer = new BusinessLayer();
+        List<Object> appointments = businessLayer.getData("Appointment", "id='" + appointNumber + "'");
+        if (appointments.isEmpty())
+            return getDefaultAppointmentUnavailableXML();
+
+        return getAppointmentURIXML(appointments);
+    }
+
+    private Document getAppointmentsURIXML(List<Object> appointments, DocumentBuilderFactory dbFactory) throws ParserConfigurationException {
+        DocumentBuilder dBuilder;
+        dBuilder = dbFactory.newDocumentBuilder();
+        Document doc = dBuilder.newDocument();
+
+        Element appointmentList = doc.createElement("AppointmentList");
+        doc.appendChild(appointmentList);
+
+        for (Object appointment : appointments) {
+            appointmentList.appendChild(createURIXML(doc, this.context.getBaseUri().toString() + "Services/Appointments/" + ((Appointment) appointment).getId()));
+        }
+        return doc;
+    }
+
 
     private Document getAppointmentsXML(List<Object> appointments, DocumentBuilderFactory dbFactory) throws ParserConfigurationException {
         DocumentBuilder dBuilder;
@@ -109,6 +175,7 @@ public class LAMSService {
         appointment.setAttribute("id", appointmentObj.getId());
         appointment.setAttribute("time", appointmentObj.getAppttime().toString());
 
+        appointment.appendChild(createURIXML(doc, this.context.getBaseUri().toString() + "Services/Appointments/" + appointmentObj.getId()));
         appointment.appendChild(createPatientXML(doc, appointmentObj));
         appointment.appendChild(createPhlebotomistXML(doc, appointmentObj));
         appointment.appendChild(createPscXML(doc, appointmentObj));
@@ -117,11 +184,19 @@ public class LAMSService {
         return appointment;
     }
 
+    private Element createURIXML(Document doc, String uri) {
+        Element wadl = doc.createElement("uri");
+        Text wadlText = doc.createTextNode(uri);
+        wadl.appendChild(wadlText);
+        return wadl;
+    }
+
     private Element createPatientXML(Document doc, Appointment appointmentObj) {
         Patient patientObj = appointmentObj.getPatientid();
         Element patient = doc.createElement("patient");
         patient.setAttribute("id", patientObj.getId());
 
+        patient.appendChild(createURIXML(doc, ""));
         patient.appendChild(getElement(doc, "name", patientObj.getName()));
         patient.appendChild(getElement(doc, "address", patientObj.getAddress()));
         patient.appendChild(getElement(doc, "insurance", String.valueOf(patientObj.getInsurance())));
@@ -134,6 +209,8 @@ public class LAMSService {
         Phlebotomist phlebotomistObj = appointmentObj.getPhlebid();
         Element phlebotomist = doc.createElement("phlebotomist");
         phlebotomist.setAttribute("id", phlebotomistObj.getId());
+
+        phlebotomist.appendChild(createURIXML(doc, ""));
         phlebotomist.appendChild(getElement(doc, "name", phlebotomistObj.getName()));
         return phlebotomist;
     }
@@ -142,6 +219,8 @@ public class LAMSService {
         PSC pscObj = appointmentObj.getPscid();
         Element psc = doc.createElement("psc");
         psc.setAttribute("id", pscObj.getId());
+
+        psc.appendChild(createURIXML(doc, ""));
         psc.appendChild(getElement(doc, "name", pscObj.getName()));
         return psc;
     }
@@ -162,6 +241,8 @@ public class LAMSService {
         appointmentLabTest.setAttribute("appointmentId", labTest.getAppointment().getId());
         appointmentLabTest.setAttribute("dxcode", labTest.getDiagnosis().getCode());
         appointmentLabTest.setAttribute("labTestId", labTest.getLabTest().getId());
+
+        appointmentLabTest.appendChild(createURIXML(doc, ""));
         return appointmentLabTest;
     }
 
@@ -181,9 +262,13 @@ public class LAMSService {
      * @param xml String for appointment input
      * @return String xml formatted get appointment information of newly added appointment
      */
-    @WebMethod(operationName = "AddAppointment")
+    @Path("Appointments")
+    @PUT
+    @Consumes({"text/xml", "application/xml"})
+    @Produces("application/xml")
     public String addAppointment(String xml) {
         xml = xml.trim();
+        businessLayer = new BusinessLayer();
         String newAppointmentID = businessLayer.getNewAppointmentID();
 
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -287,7 +372,7 @@ public class LAMSService {
             }
 
             if (businessLayer.addData(newAppt)) {
-                return getAppointmentWithID(newAppointmentID);
+                return getAppointmentWithIDWithoutBody(newAppointmentID);
             }
         }
 

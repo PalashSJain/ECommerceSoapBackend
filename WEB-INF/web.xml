@@ -1,10 +1,10 @@
 <web-app>
-   <!--<servlet>
-      <display-name>LAMS Service</display-name>
-      <servlet-name>ApplicationConfig</servlet-name>
+    <servlet>
+        <display-name>LAMS Appointment Service</display-name>
+        <servlet-name>service.ApplicationConfig</servlet-name>
       <init-param>
          <param-name>javax.ws.rs.Application</param-name>
-         <param-value>ApplicationConfig</param-value>
+         <param-value>service.ApplicationConfig</param-value>
       </init-param>
-   </servlet>-->
+   </servlet>
 </web-app>

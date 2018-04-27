@@ -43,6 +43,7 @@ public class BusinessLayer {
     }
 
     private Appointment getLatestAppointment(Phlebotomist phlebotomist, Time time, Date date) {
+        dbSingleton = DBSingleton.getInstance();
         Calendar dCalendar = Calendar.getInstance();
         dCalendar.setTimeInMillis(date.getTime());
 
@@ -57,6 +58,7 @@ public class BusinessLayer {
     }
 
     private boolean hasAppointment(Patient patient, Time time, Date date) {
+        dbSingleton = DBSingleton.getInstance();
         Calendar dCalendar = Calendar.getInstance();
         dCalendar.setTimeInMillis(date.getTime());
         String d = (dCalendar.get(Calendar.MONTH) + 1) + "/" + dCalendar.get(Calendar.DATE) + "/" + dCalendar.get(Calendar.YEAR); // 2/1/2017
@@ -85,6 +87,7 @@ public class BusinessLayer {
     }
 
     public Patient getPatient(String patientId) {
+        dbSingleton = DBSingleton.getInstance();
         int id;
         try {
             id = Integer.parseInt(patientId);
@@ -96,6 +99,7 @@ public class BusinessLayer {
     }
 
     public Phlebotomist getPhlebotomist(String phlebotomistId) {
+        dbSingleton = DBSingleton.getInstance();
         int id;
         try {
             id = Integer.parseInt(phlebotomistId);
@@ -107,6 +111,7 @@ public class BusinessLayer {
     }
 
     public Physician getPhysician(String physicianId) {
+        dbSingleton = DBSingleton.getInstance();
         int id;
         try {
             id = Integer.parseInt(physicianId);
@@ -123,6 +128,7 @@ public class BusinessLayer {
     }
 
     public PSC getPSC(String pscId) {
+        dbSingleton = DBSingleton.getInstance();
         int id;
         try {
             id = Integer.parseInt(pscId);
@@ -134,6 +140,7 @@ public class BusinessLayer {
     }
 
     public LabTest getLabTest(String labTestId) {
+        dbSingleton = DBSingleton.getInstance();
         int id;
         try {
             id = Integer.parseInt(labTestId);
@@ -145,28 +152,31 @@ public class BusinessLayer {
     }
 
     public Diagnosis getDiagnosis(String dxcode) {
-
+        dbSingleton = DBSingleton.getInstance();
         List<Object> dxcodes = dbSingleton.db.getData("Diagnosis", "CODE='" + dxcode + "'");
         return (Diagnosis) getObject(dxcodes);
     }
 
     public String getNewAppointmentID() {
+        dbSingleton = DBSingleton.getInstance();
         List<Object> appointments = dbSingleton.db.getData("Appointment", "ID is not null order by id desc");
         if (appointments.isEmpty()) return "1";
         else return String.valueOf(Integer.parseInt(((Appointment) appointments.get(0)).getId()) + 10);
     }
 
-    public String initialize() {
+    public void initialize() {
         dbSingleton = DBSingleton.getInstance();
         dbSingleton.db.initialLoad("LAMS");
-        return "Database Initialized";
+//        return "Database Initialized";
     }
 
     public List<Object> getData(String table, String query) {
+        dbSingleton = DBSingleton.getInstance();
         return dbSingleton.db.getData(table, query);
     }
 
     public boolean addData(Object obj) {
+        dbSingleton = DBSingleton.getInstance();
         return dbSingleton.db.addData(obj);
     }
 }
