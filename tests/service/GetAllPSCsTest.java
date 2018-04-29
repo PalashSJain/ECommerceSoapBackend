@@ -5,7 +5,7 @@ import junit.framework.TestCase;
 /**
  * Created by Palash on 4/29/2018.
  */
-public class GetAllPSCs extends TestCase {
+public class GetAllPSCsTest extends TestCase {
 
     LAMSService service;
 

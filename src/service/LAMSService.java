@@ -91,7 +91,7 @@ public class LAMSService {
     @Path("PSCs")
     @GET
     @Produces("application/xml")
-    public String getAllPSCs(){
+    public String getAllPSCs() {
         businessLayer = new BusinessLayer();
         List<Object> PSCs = businessLayer.getData("PSC", "");
         if (PSCs.isEmpty())
@@ -219,7 +219,7 @@ public class LAMSService {
         return doc;
     }
 
-    private Element createPSCXML(Document doc, PSC pscObj){
+    private Element createPSCXML(Document doc, PSC pscObj) {
         Element appointment = doc.createElement("psc");
         Element name = doc.createElement("name");
         Text nameText = doc.createTextNode(pscObj.getName());
@@ -461,12 +461,15 @@ public class LAMSService {
         }
     }
 
-    private String getDefaultPSCEmptyXML(){
-        return "<![CDATA[<?xml version='1.0' encoding='UTF-8' standalone='no'?><PSCList><error>ERROR:PSC is not available</error></PSCList>]]>";
+    private String getDefaultPSCEmptyXML() {
+        return "<?xml version='1.0' encoding='UTF-8' standalone='no'?><PSCList><error>ERROR:PSC is not available</error></PSCList>";
     }
 
     private String getDefaultAppointmentUnavailableXML() {
-        return "<![CDATA[<?xml version='1.0' encoding='UTF-8' standalone='no'?><AppointmentList><error>ERROR:Appointment is not available</error></AppointmentList>]]>";
+        return "<?xml version='1.0' encoding='UTF-8' standalone='no'?>" +
+                "<AppointmentList>" +
+                "<error>ERROR:Appointment is not available</error>" +
+                "</AppointmentList>";
     }
 
     private Node getElement(Document doc, String tag, String value) {

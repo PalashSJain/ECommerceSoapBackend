@@ -179,4 +179,9 @@ public class BusinessLayer {
         dbSingleton = DBSingleton.getInstance();
         return dbSingleton.db.addData(obj);
     }
+
+    public boolean deleteData(String table, String query) {
+        dbSingleton = DBSingleton.getInstance();
+        return dbSingleton.db.deleteData(table, query);
+    }
 }
