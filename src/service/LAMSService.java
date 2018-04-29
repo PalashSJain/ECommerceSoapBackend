@@ -88,6 +88,28 @@ public class LAMSService {
         return createAppointmentsXML(appointments);
     }
 
+    @Path("PSCs")
+    @GET
+    @Produces("application/xml")
+    public String getAllPSCs(){
+        businessLayer = new BusinessLayer();
+        List<Object> PSCs = businessLayer.getData("PSC", "");
+        if (PSCs.isEmpty())
+            return getDefaultPSCEmptyXML();
+
+        return createPSCsXML(PSCs);
+    }
+
+    private String createPSCsXML(List<Object> PSCs) {
+        try {
+            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+            Document doc = getPSCsXML(PSCs, dbFactory);
+            return asXMLString(doc);
+        } catch (ParserConfigurationException e) {
+            return getDefaultPSCEmptyXML();
+        }
+    }
+
     private String createAppointmentsXML(List<Object> appointments) {
         try {
             DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -119,6 +141,22 @@ public class LAMSService {
     @Produces("application/xml")
     public String getAppointment(@PathParam("appointment") String appointNumber) {
         return getAppointmentWithID(appointNumber);
+    }
+
+    @Path("PSCs/{psc}")
+    @GET
+    @Produces("application/xml")
+    public String getPSC(@PathParam("psc") String pscNumber) {
+        return getPSCWithID(pscNumber);
+    }
+
+    private String getPSCWithID(String appointNumber) {
+        businessLayer = new BusinessLayer();
+        List<Object> PSCs = businessLayer.getData("PSC", "id='" + appointNumber + "'");
+        if (PSCs.isEmpty())
+            return getDefaultPSCEmptyXML();
+
+        return createPSCsXML(PSCs);
     }
 
     private String getAppointmentWithID(String appointNumber) {
@@ -153,6 +191,19 @@ public class LAMSService {
         return doc;
     }
 
+    private Document getPSCsXML(List<Object> PSCs, DocumentBuilderFactory dbFactory) throws ParserConfigurationException {
+        DocumentBuilder dBuilder;
+        dBuilder = dbFactory.newDocumentBuilder();
+        Document doc = dBuilder.newDocument();
+
+        Element pscList = doc.createElement("PSCList");
+        doc.appendChild(pscList);
+
+        for (Object PSC : PSCs) {
+            pscList.appendChild(createPSCXML(doc, (PSC) PSC));
+        }
+        return doc;
+    }
 
     private Document getAppointmentsXML(List<Object> appointments, DocumentBuilderFactory dbFactory) throws ParserConfigurationException {
         DocumentBuilder dBuilder;
@@ -166,6 +217,16 @@ public class LAMSService {
             appointmentList.appendChild(createAppointmentXML(doc, (Appointment) appointment));
         }
         return doc;
+    }
+
+    private Element createPSCXML(Document doc, PSC pscObj){
+        Element appointment = doc.createElement("psc");
+        Element name = doc.createElement("name");
+        Text nameText = doc.createTextNode(pscObj.getName());
+        name.appendChild(nameText);
+        appointment.appendChild(name);
+        appointment.appendChild(createURIXML(doc, this.context.getBaseUri().toString() + "Services/PSCs/" + pscObj.getId()));
+        return appointment;
     }
 
     private Element createAppointmentXML(Document doc, Appointment appointmentObj) {
@@ -398,6 +459,10 @@ public class LAMSService {
         } catch (Exception ex) {
             throw new RuntimeException("Error converting to String", ex);
         }
+    }
+
+    private String getDefaultPSCEmptyXML(){
+        return "<![CDATA[<?xml version='1.0' encoding='UTF-8' standalone='no'?><PSCList><error>ERROR:PSC is not available</error></PSCList>]]>";
     }
 
     private String getDefaultAppointmentUnavailableXML() {
