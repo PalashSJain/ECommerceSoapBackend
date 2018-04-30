@@ -235,13 +235,15 @@ public class LAMSService {
     }
 
     private Element createPSCXML(Document doc, PSC pscObj) {
-        Element appointment = doc.createElement("psc");
+        Element psc = doc.createElement("psc");
+        psc.setAttribute("id", pscObj.getId());
+
         Element name = doc.createElement("name");
         Text nameText = doc.createTextNode(pscObj.getName());
         name.appendChild(nameText);
-        appointment.appendChild(name);
-        appointment.appendChild(createURIXML(doc, this.context.getBaseUri().toString() + "Services/PSCs/" + pscObj.getId()));
-        return appointment;
+        psc.appendChild(name);
+        psc.appendChild(createURIXML(doc, this.context.getBaseUri().toString() + "Services/PSCs/" + pscObj.getId()));
+        return psc;
     }
 
     private Element createAppointmentXML(Document doc, Appointment appointmentObj) {
@@ -296,7 +298,7 @@ public class LAMSService {
         Element psc = doc.createElement("psc");
         psc.setAttribute("id", pscObj.getId());
 
-        psc.appendChild(createURIXML(doc, ""));
+        psc.appendChild(createURIXML(doc, this.context.getBaseUri().toString() + "Services/PSCs/" + pscObj.getId()));
         psc.appendChild(getElement(doc, "name", pscObj.getName()));
         return psc;
     }
