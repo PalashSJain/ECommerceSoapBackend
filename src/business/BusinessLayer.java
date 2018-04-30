@@ -3,6 +3,8 @@ package business;
 import components.data.*;
 import service.DBSingleton;
 
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.UriInfo;
 import java.sql.Date;
 import java.sql.Time;
 import java.util.Calendar;
@@ -10,6 +12,8 @@ import java.util.List;
 import java.util.ListIterator;
 
 public class BusinessLayer {
+    @Context
+    private UriInfo context;
     private DBSingleton dbSingleton;
 
     public BusinessLayer() {
@@ -183,5 +187,9 @@ public class BusinessLayer {
     public boolean deleteData(String table, String query) {
         dbSingleton = DBSingleton.getInstance();
         return dbSingleton.db.deleteData(table, query);
+    }
+
+    public String getContext() {
+        return this.context.getBaseUri().toString();
     }
 }
