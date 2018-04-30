@@ -143,6 +143,21 @@ public class LAMSService {
         return getAppointmentWithID(appointNumber);
     }
 
+    @Path("Appointments/{appointment}/delete")
+    @DELETE
+    @Produces("application/xml")
+    public String deleteAppointment(@PathParam("appointment") String appointNumber) {
+        businessLayer = new BusinessLayer();
+        if (businessLayer.deleteData("AppointmentLabTest", "apptid='" + appointNumber + "'") && businessLayer.deleteData("Appointment", "id='" + appointNumber + "'")) {
+            return "<?xml version='1.0' encoding='UTF-8' standalone='no'?>" +
+                    "<AppointmentList>" +
+                    "<success>DELETED: Appointment deleted.</success>" +
+                    "</AppointmentList>";
+        } else {
+            return getDefaultAppointmentUnavailableXML();
+        }
+    }
+
     @Path("PSCs/{psc}")
     @GET
     @Produces("application/xml")
